@@ -15,6 +15,10 @@ import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
+import { useDebouncedEffect } from "@/hooks/useDebouncedEffect";
+import { ISwapPreview } from "@/types/types";
+import SwapPreview from "./SwapPreview";
+import LoadingSpinner from "./LoadingSpinner";
 
 const mockMerchant = {
   name: "Digital Store",
@@ -27,37 +31,42 @@ const mockTokens = [
   { symbol: "USDC", name: "USD Coin", balance: "100" },
 ];
 const PaymentPage = () => {
-  const [amount, setAmount] = useState("");
+  const [amount, setAmount] = useState<number>();
   const [selectedToken, setSelectedToken] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [quoteData, setQuoteData] = useState<ISwapPreview>();
+  const [isPriceLoading, setIsPriceLoading] = useState<boolean>(false);
 
   const router = useRouter();
 
-  const swapPreview =
-    amount && selectedToken
-      ? {
-          inputAmount: amount,
-          inputToken: selectedToken,
-          outputAmount: "0.10",
-          outputToken: "USDC",
-          networkFee: "0.0001 SOL",
-        }
-      : null;
+  useDebouncedEffect(
+    () => {
+      if (amount && selectedToken) {
+        setIsPriceLoading(true);
+        fetchQuote(amount * 1000000000);
+      }
+    },
+    500,
+    [amount, selectedToken]
+  );
+
+  const fetchQuote = async (amount: number) => {
+    try {
+      const inputMint = "DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263";
+      const response = await fetch(
+        `/api/quote?inputMint=${inputMint}&&amount=${amount}`
+      );
+      const data = await response.json();
+      setQuoteData(data);
+      setIsPriceLoading(false);
+    } catch (error) {
+      console.error("Error fetching quote:", error);
+    }
+  };
 
   const handlePayment = async () => {
-    if (!amount || !selectedToken) {
-      toast.error("Please enter an amount and select a token");
-      //   {
-      //     title: "Error",
-      //     description: "Please enter an amount and select a token",
-      //     variant: "destructive",
-      //   }
-      return;
-    }
-    setIsLoading(true);
-
-    // Simulate transaction - replace with actual wallet integration
     try {
+      setIsLoading(true);
       await new Promise((resolve) => setTimeout(resolve, 2000));
       toast.success("Payment completed successfully");
       const txDetails = {
@@ -65,26 +74,18 @@ const PaymentPage = () => {
         paidToken: "SOL",
         receivedAmount: "19",
         merchantName: "john",
-        txHash: "dnbfn f"
-      }
-      localStorage.setItem("txDetails", JSON.stringify(txDetails))
-      router.push("/success")
-      //   {
-      //     title: "Success!",
-      //     description: "Payment completed successfully",
-      //   }
+        txHash: "dnbfn f",
+      };
+      localStorage.setItem("txDetails", JSON.stringify(txDetails));
+      router.push("/success");
     } catch (error) {
       console.log(error);
       toast.error("Payment failed. Please try again");
-      //   {
-      //     title: "Error",
-      //     description: "Payment failed. Please try again.",
-      //     variant: "destructive",
-      //   }
     } finally {
       setIsLoading(false);
     }
   };
+
   return (
     <div className="min-h-screen pb-20 md:pb-0 md:pt-20">
       <main className="container mx-auto px-4 py-8">
@@ -128,7 +129,7 @@ const PaymentPage = () => {
                   <SelectContent>
                     {mockTokens.map((token) => (
                       <SelectItem key={token.symbol} value={token.symbol}>
-                        {token.name} ({token.symbol}) - Balance: {token.balance}
+                        {token.name} ({token.symbol})
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -140,27 +141,19 @@ const PaymentPage = () => {
                   type="number"
                   placeholder="Enter amount"
                   value={amount}
-                  onChange={(e) => setAmount(e.target.value)}
-                  className="bg-white/5 border-white/10 text-white"
+                  onChange={(e) => setAmount(parseFloat(e.target.value))}
+                  className="bg-white/5 border-white/10 text-white focus:outline-none rounded-md"
                 />
               </div>
             </div>
-            {swapPreview && (
-              <motion.div
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="border border-white/10 rounded-lg p-4 space-y-2"
-              >
-                <p className="text-sm text-white/60">Swap Preview</p>
-                <p className="text-white">
-                  {swapPreview.inputAmount} {swapPreview.inputToken} →{" "}
-                  {swapPreview.outputAmount} {swapPreview.outputToken}
-                </p>
-                <p className="text-sm text-white/60">
-                  Network Fee: {swapPreview.networkFee}
-                </p>
-              </motion.div>
-            )}
+            {
+              isPriceLoading && (
+                <div className="flex justify-center">
+                  <LoadingSpinner />
+                </div>
+              )
+            }
+            {quoteData && !isPriceLoading && <SwapPreview quoteData={quoteData} />}
             <Button
               onClick={handlePayment}
               disabled={isLoading || !amount || !selectedToken}

@@ -5,22 +5,51 @@ export async function GET(req: Request) {
     const url = new URL(req.url);
 
     const inputMint = url.searchParams.get("inputMint");
-    const outputMint = url.searchParams.get("outputMint");
+    const outputMint = "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v";
     const amount = url.searchParams.get("amount");
 
     const response = await fetch(
-      `https://quote-api.jup.ag/v6/quote?inputMint=${inputMint}&outputMint=${outputMint}&amount=${amount}`
+      `https://api.jup.ag/swap/v1/quote?inputMint=${inputMint}&outputMint=${outputMint}&amount=${amount}`
     );
     const data = await response.json();
 
-    return NextResponse.json(
-      {
-        data,
-      },
-      {
-        status: 200,
-      }
-    );
+    if (data) {
+      console.log("data", data)
+      const inputAmount = Number(data.inAmount) / 1_000_000_000;
+      const outputAmount = Number(data.outAmount) / 1_000_000;
+      const slippage = data.slippageBps / 100;
+      const priceImpact = (Number(data.priceImpactPct) * 100).toFixed(2);
+
+      const networkFee: number =
+        data.routePlan.reduce(
+          (
+            acc: number,
+            step: {
+              swapInfo: {
+                feeAmount: number;
+              };
+            }
+          ) => {
+            return acc + Number(step.swapInfo.feeAmount);
+          },
+          0
+        ) / 1_000_000_000;
+
+      return NextResponse.json(
+        {
+          inputAmount,
+          outputAmount,
+          slippage,
+          priceImpact,
+          networkFee,
+          inputToken: "SOL",
+          outputToken: "USDC"
+        },
+        {
+          status: 200,
+        }
+      );
+    }
   } catch (err) {
     return NextResponse.json(
       {
