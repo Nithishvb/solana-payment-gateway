@@ -14,11 +14,13 @@ import { Button } from "@/components/ui/button";
 import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import Image from "next/image";
-import { useRouter } from "next/navigation";
+// import { useRouter } from "next/navigation";
 import { useDebouncedEffect } from "@/hooks/useDebouncedEffect";
 import { ISwapPreview } from "@/types/types";
 import SwapPreview from "./SwapPreview";
 import LoadingSpinner from "./LoadingSpinner";
+import { Connection, LAMPORTS_PER_SOL, Transaction } from "@solana/web3.js";
+import { useWallet } from "@solana/wallet-adapter-react";
 
 const mockMerchant = {
   name: "Digital Store",
@@ -30,6 +32,10 @@ const mockTokens = [
   { symbol: "SOL", name: "Solana", balance: "1.5" },
   { symbol: "USDC", name: "USD Coin", balance: "100" },
 ];
+
+const SOLANA_RPC = "https://api.testnet.solana.com";
+const connection = new Connection(SOLANA_RPC, "confirmed");
+
 const PaymentPage = () => {
   const [amount, setAmount] = useState<number>();
   const [selectedToken, setSelectedToken] = useState("");
@@ -37,13 +43,14 @@ const PaymentPage = () => {
   const [quoteData, setQuoteData] = useState<ISwapPreview>();
   const [isPriceLoading, setIsPriceLoading] = useState<boolean>(false);
 
-  const router = useRouter();
+  // const router = useRouter();
+  const { wallet } = useWallet();
 
   useDebouncedEffect(
     () => {
       if (amount && selectedToken) {
         setIsPriceLoading(true);
-        fetchQuote(amount * 1000000000);
+        fetchQuote(amount * LAMPORTS_PER_SOL);
       }
     },
     500,
@@ -67,19 +74,45 @@ const PaymentPage = () => {
   const handlePayment = async () => {
     try {
       setIsLoading(true);
-      await new Promise((resolve) => setTimeout(resolve, 2000));
-      toast.success("Payment completed successfully");
-      const txDetails = {
-        paidAmount: "20",
-        paidToken: "SOL",
-        receivedAmount: "19",
-        merchantName: "john",
-        txHash: "dnbfn f",
-      };
-      localStorage.setItem("txDetails", JSON.stringify(txDetails));
-      router.push("/success");
+      
+      const response = await fetch('/api/swap', {
+        method: "POST",
+        body: JSON.stringify({
+          userPublicKey: "",
+          inputMint: "", 
+          outputMint: "", 
+          inAmount: ((amount || 0) * LAMPORTS_PER_SOL), 
+          merchantAddress: ""
+        }),
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
+      const { transaction } = await response.json();
+      const recoveredTransaction = Transaction.from(Buffer.from(transaction, "base64"));
+
+      // const feePayerKeypair = Keypair.fromSecretKey(Buffer.from(feePayer, "base64"));
+
+      if(wallet){
+        const signature = await wallet.adapter.sendTransaction(recoveredTransaction, connection);
+        await connection.confirmTransaction(signature);
+        // const signature = await sendAndConfirmTransaction(connection , recoveredTransaction, [wallet], {
+        //   commitment: "confirmed"
+        // });
+        console.log("Transaction sent:", signature);
+      }
+      
+      // const txDetails = {
+      //   paidAmount: "20",
+      //   paidToken: "SOL",
+      //   receivedAmount: "19",
+      //   merchantName: "john",
+      //   txHash: "dnbfn f",
+      // };
+      // localStorage.setItem("txDetails", JSON.stringify(txDetails));
+      // router.push("/success");
     } catch (error) {
-      console.log(error);
+      console.log((error as Error).message);
       toast.error("Payment failed. Please try again");
     } finally {
       setIsLoading(false);

@@ -1,10 +1,12 @@
 "use client";
 
+import { WalletMultiButton } from "@solana/wallet-adapter-react-ui";
 import { Home, Receipt } from "lucide-react";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 
 const Navbar = () => {
   const pathname = usePathname();
+  const router = useRouter();
 
   const navItems = [
     { icon: Home, label: "Home", path: "/" },
@@ -23,6 +25,7 @@ const Navbar = () => {
           {navItems.map(({ icon: Icon, label, path }) => (
             <button
               key={path}
+              onClick={() => router.push(path)}
               className={`flex items-center space-x-2 px-4 py-2 rounded-lg transition-all duration-200 ${
                 pathname === path
                   ? "text-primary bg-white/5"
@@ -33,6 +36,14 @@ const Navbar = () => {
               <span className="hidden md:inline">{label}</span>
             </button>
           ))}
+          <div>
+            <WalletMultiButton style={{
+              background: "#5c6ac4",
+              padding: "5px 20px",
+              height: "40px",
+              borderRadius: "7px"
+            }} />
+          </div>
         </div>
       </div>
     </nav>

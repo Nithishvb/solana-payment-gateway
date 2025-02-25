@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 import {
+  Connection,
+  Keypair,
   PublicKey,
   Transaction,
   TransactionInstruction,
@@ -9,6 +11,9 @@ import {
   getAssociatedTokenAddress,
   createTransferInstruction,
 } from "@solana/spl-token";
+
+const connection = new Connection('https://api.testnet.solana.com', 'confirmed');
+const feePayer = Keypair.generate();
 
 export async function POST(req: Request) {
   try {
@@ -56,7 +61,7 @@ export async function POST(req: Request) {
 
     const { setupInstructions } = await jupiterQuoteApi.swapInstructionsPost({
       swapRequest: {
-        userPublicKey: merchantAddress,
+        userPublicKey: userPublicKey,
         quoteResponse: quoteResponse,
       },
     });
@@ -81,8 +86,13 @@ export async function POST(req: Request) {
       ...transactionInstructions
     );
 
+    const recentBlockhash = await getRecentBlockhash(connection);
+
+    transaction.recentBlockhash = recentBlockhash;
+    transaction.feePayer = feePayer.publicKey;
+
     const serializedTransaction = transaction
-      .serialize({ requireAllSignatures: false })
+      .serialize({ requireAllSignatures: false, verifySignatures: false })
       .toString("base64");
 
     return NextResponse.json(
@@ -100,4 +110,10 @@ export async function POST(req: Request) {
       { status: 500 }
     );
   }
+}
+
+
+async function getRecentBlockhash(connection: Connection) {
+  const blockhashInfo = await connection.getRecentBlockhash();
+  return blockhashInfo.blockhash;
 }
