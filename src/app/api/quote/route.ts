@@ -1,3 +1,4 @@
+import { LAMPORTS_PER_SOL } from "@solana/web3.js";
 import { NextResponse } from "next/server";
 
 export async function GET(req: Request) {
@@ -14,9 +15,8 @@ export async function GET(req: Request) {
     const data = await response.json();
 
     if (data) {
-      console.log("data", data)
-      const inputAmount = Number(data.inAmount) / 1_000_000_000;
-      const outputAmount = Number(data.outAmount) / 1_000_000;
+      const inputAmount = Number(data.inAmount) / LAMPORTS_PER_SOL;
+      const outputAmount = (parseInt(data.outAmount) / (10 ** 6));
       const slippage = data.slippageBps / 100;
       const priceImpact = (Number(data.priceImpactPct) * 100).toFixed(2);
 

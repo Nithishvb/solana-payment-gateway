@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import {
   Connection,
-  Keypair,
+  // Keypair,
   PublicKey,
   Transaction,
   TransactionInstruction,
@@ -13,7 +13,7 @@ import {
 } from "@solana/spl-token";
 
 const connection = new Connection('https://api.testnet.solana.com', 'confirmed');
-const feePayer = Keypair.generate();
+// const feePayer = Keypair.generate();
 
 export async function POST(req: Request) {
   try {
@@ -89,7 +89,7 @@ export async function POST(req: Request) {
     const recentBlockhash = await getRecentBlockhash(connection);
 
     transaction.recentBlockhash = recentBlockhash;
-    transaction.feePayer = feePayer.publicKey;
+    transaction.feePayer = buyer;
 
     const serializedTransaction = transaction
       .serialize({ requireAllSignatures: false, verifySignatures: false })
