@@ -14,12 +14,18 @@ import { Button } from "@/components/ui/button";
 import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import Image from "next/image";
-// import { useRouter } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { useDebouncedEffect } from "@/hooks/useDebouncedEffect";
 import { ISwapPreview } from "@/types/types";
 import SwapPreview from "./SwapPreview";
 import LoadingSpinner from "./LoadingSpinner";
-import { Connection, LAMPORTS_PER_SOL, Transaction } from "@solana/web3.js";
+import {
+  Connection,
+  LAMPORTS_PER_SOL,
+  PublicKey,
+  SystemProgram,
+  Transaction,
+} from "@solana/web3.js";
 import { useWallet } from "@solana/wallet-adapter-react";
 
 const mockMerchant = {
@@ -33,7 +39,8 @@ const mockTokens = [
   { symbol: "USDC", name: "USD Coin", balance: "100" },
 ];
 
-const SOLANA_RPC = "https://api.testnet.solana.com";
+const SOLANA_RPC =
+  "";
 const connection = new Connection(SOLANA_RPC, "confirmed");
 
 const PaymentPage = () => {
@@ -43,8 +50,8 @@ const PaymentPage = () => {
   const [quoteData, setQuoteData] = useState<ISwapPreview>();
   const [isPriceLoading, setIsPriceLoading] = useState<boolean>(false);
 
-  // const router = useRouter();
-  const { wallet } = useWallet();
+  const router = useRouter();
+  const { wallet, sendTransaction } = useWallet();
 
   useDebouncedEffect(
     () => {
@@ -59,7 +66,7 @@ const PaymentPage = () => {
 
   const fetchQuote = async (amount: number) => {
     try {
-      const inputMint = "DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263";
+      const inputMint = "So11111111111111111111111111111111111111112";
       const response = await fetch(
         `/api/quote?inputMint=${inputMint}&&amount=${amount}`
       );
@@ -74,43 +81,33 @@ const PaymentPage = () => {
   const handlePayment = async () => {
     try {
       setIsLoading(true);
-      
-      const response = await fetch('/api/swap', {
-        method: "POST",
-        body: JSON.stringify({
-          userPublicKey: "",
-          inputMint: "", 
-          outputMint: "", 
-          inAmount: ((amount || 0) * LAMPORTS_PER_SOL), 
-          merchantAddress: ""
-        }),
-        headers: {
-          'Content-Type': 'application/json'
-        }
-      });
-      const { transaction } = await response.json();
-      const recoveredTransaction = Transaction.from(Buffer.from(transaction, "base64"));
 
-      // const feePayerKeypair = Keypair.fromSecretKey(Buffer.from(feePayer, "base64"));
+      const transaction = new Transaction();
+      transaction.add(
+        SystemProgram.transfer({
+          fromPubkey: new PublicKey(
+            ""
+          ),
+          toPubkey: new PublicKey(
+            ""
+          ),
+          lamports: ((amount || 0) * LAMPORTS_PER_SOL),
+        })
+      );
 
-      if(wallet){
-        const signature = await wallet.adapter.sendTransaction(recoveredTransaction, connection);
+      if (wallet) {
+        const signature = await sendTransaction(transaction, connection);
         await connection.confirmTransaction(signature);
-        // const signature = await sendAndConfirmTransaction(connection , recoveredTransaction, [wallet], {
-        //   commitment: "confirmed"
-        // });
         console.log("Transaction sent:", signature);
+        const txDetails = {
+          paidAmount: amount,
+          paidToken: selectedToken,
+          merchantName: "john",
+          txHash: signature,
+        };
+        localStorage.setItem("txDetails", JSON.stringify(txDetails));
+        router.push("/success");
       }
-      
-      // const txDetails = {
-      //   paidAmount: "20",
-      //   paidToken: "SOL",
-      //   receivedAmount: "19",
-      //   merchantName: "john",
-      //   txHash: "dnbfn f",
-      // };
-      // localStorage.setItem("txDetails", JSON.stringify(txDetails));
-      // router.push("/success");
     } catch (error) {
       console.log((error as Error).message);
       toast.error("Payment failed. Please try again");
@@ -179,14 +176,14 @@ const PaymentPage = () => {
                 />
               </div>
             </div>
-            {
-              isPriceLoading && (
-                <div className="flex justify-center">
-                  <LoadingSpinner />
-                </div>
-              )
-            }
-            {quoteData && !isPriceLoading && <SwapPreview quoteData={quoteData} />}
+            {isPriceLoading && (
+              <div className="flex justify-center">
+                <LoadingSpinner />
+              </div>
+            )}
+            {quoteData && !isPriceLoading && (
+              <SwapPreview quoteData={quoteData} />
+            )}
             <Button
               onClick={handlePayment}
               disabled={isLoading || !amount || !selectedToken}
